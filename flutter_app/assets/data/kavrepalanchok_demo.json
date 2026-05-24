@@ -1,0 +1,131 @@
+{
+  "version": 0.6,
+  "generator": "tactical-disaster-simulation-demo",
+  "elements": [
+    {
+      "type": "way",
+      "id": 9000001,
+      "tags": { "highway": "primary", "name": "Araniko Highway" },
+      "geometry": [
+        { "lat": 27.6800, "lon": 85.4000 },
+        { "lat": 27.6580, "lon": 85.4470 },
+        { "lat": 27.6320, "lon": 85.4960 },
+        { "lat": 27.6210, "lon": 85.5439 },
+        { "lat": 27.6480, "lon": 85.5900 },
+        { "lat": 27.6700, "lon": 85.6280 },
+        { "lat": 27.7000, "lon": 85.6800 }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 9000002,
+      "tags": { "highway": "secondary", "name": "Dhulikhel - Panauti Road" },
+      "geometry": [
+        { "lat": 27.6210, "lon": 85.5439 },
+        { "lat": 27.6010, "lon": 85.5360 },
+        { "lat": 27.5800, "lon": 85.5170 }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 9000003,
+      "tags": { "highway": "secondary", "name": "Banepa Inner Road" },
+      "geometry": [
+        { "lat": 27.6320, "lon": 85.4960 },
+        { "lat": 27.6308, "lon": 85.5193 }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 9000004,
+      "tags": { "highway": "tertiary", "name": "Namobuddha Loop" },
+      "geometry": [
+        { "lat": 27.5800, "lon": 85.5170 },
+        { "lat": 27.5969, "lon": 85.5828 },
+        { "lat": 27.6210, "lon": 85.5439 }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 9000005,
+      "tags": { "highway": "tertiary", "name": "Panchkhal Spur" },
+      "geometry": [
+        { "lat": 27.6700, "lon": 85.6280 },
+        { "lat": 27.6736, "lon": 85.6276 },
+        { "lat": 27.6900, "lon": 85.6500 }
+      ]
+    },
+
+    {
+      "type": "node",
+      "id": 8100001,
+      "lat": 27.6193,
+      "lon": 85.5444,
+      "tags": { "amenity": "hospital", "name": "Dhulikhel Hospital" }
+    },
+    {
+      "type": "node",
+      "id": 8100002,
+      "lat": 27.6322,
+      "lon": 85.5200,
+      "tags": { "amenity": "hospital", "name": "Scheer Memorial Hospital, Banepa" }
+    },
+    {
+      "type": "node",
+      "id": 8100003,
+      "lat": 27.5825,
+      "lon": 85.5181,
+      "tags": { "amenity": "hospital", "name": "Panauti PHCC" }
+    },
+
+    {
+      "type": "way",
+      "id": 8200001,
+      "tags": { "boundary": "administrative", "admin_level": "9", "name": "Dhulikhel Ward 4" },
+      "geometry": [
+        { "lat": 27.6180, "lon": 85.5420 },
+        { "lat": 27.6230, "lon": 85.5420 },
+        { "lat": 27.6230, "lon": 85.5470 },
+        { "lat": 27.6180, "lon": 85.5470 },
+        { "lat": 27.6180, "lon": 85.5420 }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 8200002,
+      "tags": { "boundary": "administrative", "admin_level": "9", "name": "Banepa Ward 6" },
+      "geometry": [
+        { "lat": 27.6280, "lon": 85.5160 },
+        { "lat": 27.6330, "lon": 85.5160 },
+        { "lat": 27.6330, "lon": 85.5220 },
+        { "lat": 27.6280, "lon": 85.5220 },
+        { "lat": 27.6280, "lon": 85.5160 }
+      ]
+    },
+
+    {
+      "type": "way",
+      "id": 8300001,
+      "tags": { "landuse": "forest", "name": "Sunkoshi Forest" },
+      "geometry": [
+        { "lat": 27.7000, "lon": 85.7200 },
+        { "lat": 27.7100, "lon": 85.7200 },
+        { "lat": 27.7100, "lon": 85.7400 },
+        { "lat": 27.7000, "lon": 85.7400 },
+        { "lat": 27.7000, "lon": 85.7200 }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 8300002,
+      "tags": { "natural": "wood", "name": "Namobuddha Hill" },
+      "geometry": [
+        { "lat": 27.5950, "lon": 85.5800 },
+        { "lat": 27.5990, "lon": 85.5800 },
+        { "lat": 27.5990, "lon": 85.5870 },
+        { "lat": 27.5950, "lon": 85.5870 },
+        { "lat": 27.5950, "lon": 85.5800 }
+      ]
+    }
+  ]
+}
