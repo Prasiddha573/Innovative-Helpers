@@ -112,29 +112,32 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final screen = MediaQuery.of(context).size;
-    final cardHeight = screen.height * 0.38; // Increased height from 0.28 to 0.38
-    final cardWidth = screen.width * 0.90;
+    final cardHeight = screen.height * 0.34; // Reduced from 0.38 to 0.34
+    final cardWidth = screen.width * 0.92;
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: _appBar(),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           physics: const BouncingScrollPhysics(),
           child: Column(
             children: [
               _greetingCard(),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
               // Map Card with iOS style
               Center(
-                child: _buildMapCard(cardHeight, cardWidth),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: _buildMapCard(cardHeight, cardWidth),
+                ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               _actionButtons(),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               _legend(cardWidth),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -169,9 +172,10 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(24),
         child: Column(
           children: [
-            // Map Container
-            SizedBox(
+            // Map Container with internal padding
+            Container(
               height: height,
+              padding: const EdgeInsets.all(2),
               child: _loadingOsm
                   ? _loadingTile()
                   : TacticalMap(
@@ -236,7 +240,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _greetingCard() => Obx(() {
     final user = _authCtrl.profile.value;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Row(
         children: [
           Expanded(
@@ -282,7 +286,7 @@ class _HomeScreenState extends State<HomeScreen> {
         osm: _osm,
         hazards: _allHazards,
       )),
-      icon: const Icon(Icons.map_outlined, size: 20),
+      icon: const Icon(Icons.explore, size: 20),
       label: Text(
         'Open Full Map',
         style: GoogleFonts.quicksand(
@@ -304,13 +308,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _actionButtons() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Row(
         children: [
           Expanded(
             child: _modernActionButton(
               icon: Icons.report_problem_rounded,
-              label: 'Report', // Changed from 'Report Hazard' to 'Report'
+              label: 'Report',
               color: AppColors.warningOrange,
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
@@ -320,7 +324,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: _openReportDialog,
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: _modernActionButton(
               icon: Icons.medical_services_rounded,
@@ -352,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10), // Reduced height
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
           decoration: BoxDecoration(
             gradient: gradient,
             borderRadius: BorderRadius.circular(16),
@@ -368,19 +372,19 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(6), // Reduced padding
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: Colors.white, size: 18), // Reduced icon size
+                child: Icon(icon, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   label,
                   style: GoogleFonts.quicksand(
-                    fontSize: 13, // Reduced font size
+                    fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
                   ),
@@ -389,7 +393,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Icon(
                 Icons.arrow_forward_rounded,
                 color: Colors.white.withOpacity(0.9),
-                size: 16, // Reduced icon size
+                size: 16,
               ),
             ],
           ),
@@ -400,16 +404,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _legend(double width) => Container(
     width: width,
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
       border: Border.all(color: Colors.grey.shade200, width: 1),
       boxShadow: [
         BoxShadow(
           color: Colors.black.withOpacity(0.04),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
+          blurRadius: 10,
+          offset: const Offset(0, 3),
         ),
       ],
     ),
@@ -419,52 +423,52 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           children: [
             Container(
-              width: 4,
-              height: 20,
+              width: 3,
+              height: 16,
               decoration: BoxDecoration(
                 color: AppColors.primaryPurple,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(1.5),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Text(
               'Map Legend',
               style: GoogleFonts.quicksand(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textColor,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
         // Row 1: 3 items
         Row(
           children: [
             Expanded(child: _buildLegendItem('🏥', 'Hospital')),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(child: _buildLegendItem('🏛️', 'Ward')),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(child: _buildLegendItem('🌲', 'Forest')),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         // Row 2: 3 items
         Row(
           children: [
             Expanded(child: _buildLegendItem('🔥', 'Fire')),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(child: _buildLegendItem('🌊', 'Flood')),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(child: _buildLegendItem('🚧', 'Danger')),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         // Row 3: 2 items (Landslide and Ambulance) covering full width
         Row(
           children: [
             Expanded(child: _buildLegendItem('⛰️', 'Landslide')),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(child: _buildLegendItem('🚑', 'Ambulance')),
           ],
         ),
@@ -474,23 +478,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildLegendItem(String emoji, String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.grey.shade200, width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 13)),
-          const SizedBox(width: 6),
+          Text(emoji, style: const TextStyle(fontSize: 11)),
+          const SizedBox(width: 4),
           Flexible(
             child: Text(
               label,
               style: GoogleFonts.quicksand(
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: FontWeight.w600,
                 color: Colors.grey.shade700,
               ),
