@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/innovative_helper.iml" filepath="$PROJECT_DIR$/innovative_helper.iml" />
-      <module fileurl="file://$PROJECT_DIR$/android/innovative_helper_android.iml" filepath="$PROJECT_DIR$/android/innovative_helper_android.iml" />
     </modules>
   </component>
 </project>

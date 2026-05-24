@@ -14,6 +14,7 @@ import '../themes/colors.dart';
 ///   - ward markers
 ///   - hazards (flood/fire/landslide/danger zone)
 ///   - ambulances (when [showAmbulances] is true)
+///   - casualty point (when provided)
 ///   - emergency route overlays (golden primary + sky-blue secondary)
 class TacticalMap extends StatelessWidget {
   final MapController? controller;
@@ -31,6 +32,8 @@ class TacticalMap extends StatelessWidget {
   final bool showAmbulances;
   final bool showRoutes;
   final void Function(HazardModel)? onHazardTap;
+  final LatLng? casualtyPoint;
+  final LatLng? selectedPoint;
 
   const TacticalMap({
     super.key,
@@ -49,6 +52,8 @@ class TacticalMap extends StatelessWidget {
     this.showAmbulances = false,
     this.showRoutes = false,
     this.onHazardTap,
+    this.casualtyPoint,
+    this.selectedPoint,
   });
 
   @override
@@ -60,7 +65,9 @@ class TacticalMap extends StatelessWidget {
         initialZoom: initialZoom,
         minZoom: 6,
         maxZoom: 19,
-        onTap: onTap == null ? null : (tapPos, point) => onTap!(point),
+        onTap: onTap == null ? null : (tapPos, point) {
+          onTap!(point);
+        },
       ),
       children: [
         TileLayer(
@@ -72,10 +79,10 @@ class TacticalMap extends StatelessWidget {
           PolylineLayer(
             polylines: roadLines
                 .map((pts) => Polyline(
-                      points: pts,
-                      color: Colors.grey.shade400,
-                      strokeWidth: 1.5,
-                    ))
+              points: pts,
+              color: Colors.grey.shade400,
+              strokeWidth: 1.5,
+            ))
                 .toList(),
           ),
         if (showRoutes && secondaryRoute.length >= 2)
@@ -126,6 +133,34 @@ class TacticalMap extends StatelessWidget {
       markers.add(_emojiMarker(w, '🏛️', 22));
     }
 
+    // Selected Point (during confirmation - shows at tapped location)
+    if (selectedPoint != null) {
+      markers.add(Marker(
+        point: selectedPoint!,
+        width: 40,
+        height: 40,
+        child: const Icon(
+          Icons.place_rounded,
+          color: Colors.red,
+          size: 36,
+        ),
+      ));
+    }
+
+    // Casualty Point (after confirmation) - simple red pin only
+    if (casualtyPoint != null && selectedPoint == null) {
+      markers.add(Marker(
+        point: casualtyPoint!,
+        width: 40,
+        height: 40,
+        child: const Icon(
+          Icons.place_rounded,
+          color: Colors.red,
+          size: 36,
+        ),
+      ));
+    }
+
     // Hazards
     for (final hz in hazards) {
       markers.add(Marker(
@@ -137,7 +172,6 @@ class TacticalMap extends StatelessWidget {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Red risk dot beneath the emoji to mimic blueprint visual.
               Container(
                 width: 14,
                 height: 14,
@@ -146,8 +180,7 @@ class TacticalMap extends StatelessWidget {
                   color: Colors.red,
                 ),
               ),
-              Text(hz.type.emoji,
-                  style: const TextStyle(fontSize: 22)),
+              Text(hz.type.emoji, style: const TextStyle(fontSize: 22)),
             ],
           ),
         ),
@@ -171,8 +204,9 @@ class TacticalMap extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: a.available ? Colors.white : Colors.amber,
                   border: Border.all(
-                      color: a.available ? Colors.red : Colors.deepOrange,
-                      width: 2),
+                    color: a.available ? Colors.red : Colors.deepOrange,
+                    width: 2,
+                  ),
                 ),
               ),
               const Text('🚑', style: TextStyle(fontSize: 18)),
@@ -196,10 +230,9 @@ class TacticalMap extends StatelessWidget {
   }
 
   Marker _emojiMarker(LatLng p, String emoji, double size) => Marker(
-        point: p,
-        width: size + 6,
-        height: size + 6,
-        child: Center(
-            child: Text(emoji, style: TextStyle(fontSize: size))),
-      );
+    point: p,
+    width: size + 6,
+    height: size + 6,
+    child: Center(child: Text(emoji, style: TextStyle(fontSize: size))),
+  );
 }
