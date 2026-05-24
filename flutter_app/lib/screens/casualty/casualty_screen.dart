@@ -21,11 +21,7 @@ import '../../services/toast_service.dart';
 import '../../themes/colors.dart';
 import '../../widgets/map_widget.dart';
 
-/// Casualty screen per blueprint §9 & §10.
-///   - map takes 75% of height
-///   - call ambulance flow: confirm pin → find nearest available ambulance
-///   - lock ambulance, animate along route, then go to nearest hospital
-///   - shows the dual-path overlay (golden + sky-blue) while dispatched
+/// Casualty screen with full-screen map
 class CasualtyScreen extends StatefulWidget {
   const CasualtyScreen({super.key});
 
@@ -43,7 +39,6 @@ class _CasualtyScreenState extends State<CasualtyScreen> {
   List<AmbulanceModel> _ambulances = [];
   List<HazardModel> _hazards = [];
 
-  // Dispatch state
   bool _confirmingPin = false;
   LatLng? _casualtyPoint;
   AmbulanceModel? _dispatchedAmbulance;
@@ -69,7 +64,6 @@ class _CasualtyScreenState extends State<CasualtyScreen> {
     });
     _fs.watchAmbulances().listen((list) {
       if (!mounted) return;
-      // Merge with seeded demo ambulances if Firestore is empty.
       final list2 = list.isEmpty ? DemoData.seedAmbulances() : list;
       setState(() => _ambulances = list2);
     });
@@ -77,7 +71,6 @@ class _CasualtyScreenState extends State<CasualtyScreen> {
       if (!mounted) return;
       setState(() => _hazards = list);
     });
-    // Push seeds if not already there.
     for (final a in DemoData.seedAmbulances()) {
       _fs.upsertAmbulance(a);
     }
@@ -104,7 +97,6 @@ class _CasualtyScreenState extends State<CasualtyScreen> {
       _phase = _Phase.dispatching;
     });
 
-    // 1. Persist the casualty.
     final casualtyId = DemoData.newId();
     final casualty = CasualtyModel(
       id: casualtyId,
@@ -115,8 +107,6 @@ class _CasualtyScreenState extends State<CasualtyScreen> {
     );
     await _fs.upsertCasualty(casualty);
 
-    // 2. Pick the nearest *available* ambulance. Try Python backend; if it
-    //    fails fall back to Haversine.
     final amb = await _pickNearestAmbulance(_casualtyPoint!);
     if (amb == null) {
       _toast.showErrorMessage('No ambulance is currently available');
@@ -124,20 +114,18 @@ class _CasualtyScreenState extends State<CasualtyScreen> {
       return;
     }
 
-    // 3. Lock the ambulance.
     final locked = amb.copyWith(available: false, lockedFor: casualtyId);
     await _fs.upsertAmbulance(locked);
 
-    // 4. Ask the Python backend for the dual paths.
     final route = await RoutingService.findRoute(
       from: amb.latLng,
       to: _casualtyPoint!,
       hazards: _hazards
           .map((h) => {
-                'lat': h.lat,
-                'lng': h.lng,
-                'type': h.type.firestoreKey,
-              })
+        'lat': h.lat,
+        'lng': h.lng,
+        'type': h.type.firestoreKey,
+      })
           .toList(),
     );
 
@@ -149,8 +137,7 @@ class _CasualtyScreenState extends State<CasualtyScreen> {
       _animIndex = 0;
     });
     _startAnimation();
-    _toast.showInfoMessage(
-        'Ambulance dispatched from ${amb.stationName}');
+    _toast.showInfoMessage('Ambulance dispatched from ${amb.stationName}');
   }
 
   Future<AmbulanceModel?> _pickNearestAmbulance(LatLng casualty) async {
@@ -158,10 +145,10 @@ class _CasualtyScreenState extends State<CasualtyScreen> {
     if (available.isEmpty) return null;
     final payload = available
         .map((a) => {
-              'id': a.id,
-              'lat': a.lat,
-              'lng': a.lng,
-            })
+      'id': a.id,
+      'lat': a.lat,
+      'lng': a.lng,
+    })
         .toList();
     final result = await RoutingService.findNearestAmbulance(
       casualty: casualty,
@@ -189,31 +176,27 @@ class _CasualtyScreenState extends State<CasualtyScreen> {
     final fps = AppConfig.ambulanceFps;
     _animTimer =
         Timer.periodic(Duration(milliseconds: 1000 ~/ fps), (timer) {
-      if (!mounted) return;
-      final path = _activeRoute.primary;
-      if (path.length < 2) {
-        timer.cancel();
-        return;
-      }
-      // Move forward along the primary route. We move ~3% of total path per
-      // step so a typical demo finishes within ~5 s.
-      _animIndex++;
-      final t = (_animIndex / 30).clamp(0.0, 1.0);
-      final pos = _interpolate(path, t);
-      setState(() => _ambulancePosition = pos);
-      if (t >= 1.0) {
-        timer.cancel();
-        _onArrived();
-      }
-    });
+          if (!mounted) return;
+          final path = _activeRoute.primary;
+          if (path.length < 2) {
+            timer.cancel();
+            return;
+          }
+          _animIndex++;
+          final t = (_animIndex / 30).clamp(0.0, 1.0);
+          final pos = _interpolate(path, t);
+          setState(() => _ambulancePosition = pos);
+          if (t >= 1.0) {
+            timer.cancel();
+            _onArrived();
+          }
+        });
   }
 
   Future<void> _onArrived() async {
     if (_phase == _Phase.movingToCasualty) {
-      // Compute path from casualty → nearest hospital.
       final hosp = _nearestHospital(_casualtyPoint!);
       if (hosp == null) {
-        // No hospital data → release ambulance and complete.
         await _release();
         return;
       }
@@ -222,10 +205,10 @@ class _CasualtyScreenState extends State<CasualtyScreen> {
         to: hosp,
         hazards: _hazards
             .map((h) => {
-                  'lat': h.lat,
-                  'lng': h.lng,
-                  'type': h.type.firestoreKey,
-                })
+          'lat': h.lat,
+          'lng': h.lng,
+          'type': h.type.firestoreKey,
+        })
             .toList(),
       );
       setState(() {
@@ -286,7 +269,6 @@ class _CasualtyScreenState extends State<CasualtyScreen> {
 
   LatLng _interpolate(List<LatLng> path, double t) {
     if (path.length < 2) return path.first;
-    // Compute cumulative segment lengths in metres.
     const d = Distance();
     final lengths = <double>[];
     double total = 0;
@@ -312,244 +294,549 @@ class _CasualtyScreenState extends State<CasualtyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final h = MediaQuery.of(context).size.height;
-    final mapHeight = h * 0.75;
+    final screenSize = MediaQuery.of(context).size;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final topPadding = MediaQuery.of(context).padding.top;
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Text(
-          'Casualty Response',
-          style: GoogleFonts.quicksand(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textColor,
-          ),
-        ),
-      ),
-      body: Column(
+      backgroundColor: Colors.black,
+      appBar: _buildAppBar(),
+      body: Stack(
         children: [
-          SizedBox(
-            height: mapHeight,
-            child: Stack(
-              children: [
-                TacticalMap(
-                  controller: _mapCtrl,
-                  center: _casualtyPoint ??
-                      LatLng(AppConfig.defaultLat, AppConfig.defaultLng),
-                  initialZoom: AppConfig.defaultZoom,
-                  roadLines: _osm == null
-                      ? const []
-                      : _osm!.roads.map((f) => f.geometry).toList(),
-                  forestCentroids: _osm == null
-                      ? DemoData.seedForestCentroids()
-                      : _osm!.forests
-                          .map((f) => _centroid(f.geometry))
-                          .toList(),
-                  hospitals: _osm == null
-                      ? const []
-                      : _osm!.hospitals
-                          .map((f) => _centroid(f.geometry))
-                          .toList(),
-                  wards: _osm == null
-                      ? const []
-                      : _osm!.wards
-                          .map((f) => _centroid(f.geometry))
-                          .toList(),
-                  hazards: _hazards,
-                  ambulances: _ambulances
-                      .map((a) {
-                        if (_dispatchedAmbulance != null &&
-                            a.id == _dispatchedAmbulance!.id &&
-                            _ambulancePosition != null) {
-                          return a.copyWith(
-                            lat: _ambulancePosition!.latitude,
-                            lng: _ambulancePosition!.longitude,
-                            available: false,
-                          );
-                        }
-                        return a;
-                      })
-                      .toList(growable: false),
-                  primaryRoute: _activeRoute.primary,
-                  secondaryRoute: _activeRoute.secondary,
-                  showRoutes: _phase != _Phase.idle,
-                  showAmbulances: true,
-                  onTap: _confirmingPin
-                      ? (p) => setState(() => _casualtyPoint = p)
-                      : null,
+          // Full-screen map
+          TacticalMap(
+            controller: _mapCtrl,
+            center: _casualtyPoint ??
+                LatLng(AppConfig.defaultLat, AppConfig.defaultLng),
+            initialZoom: AppConfig.defaultZoom,
+            roadLines: _osm == null
+                ? const []
+                : _osm!.roads.map((f) => f.geometry).toList(),
+            forestCentroids: _osm == null
+                ? DemoData.seedForestCentroids()
+                : _osm!.forests
+                .map((f) => _centroid(f.geometry))
+                .toList(),
+            hospitals: _osm == null
+                ? const []
+                : _osm!.hospitals
+                .map((f) => _centroid(f.geometry))
+                .toList(),
+            wards: _osm == null
+                ? const []
+                : _osm!.wards
+                .map((f) => _centroid(f.geometry))
+                .toList(),
+            hazards: _hazards,
+            ambulances: _ambulances
+                .map((a) {
+              if (_dispatchedAmbulance != null &&
+                  a.id == _dispatchedAmbulance!.id &&
+                  _ambulancePosition != null) {
+                return a.copyWith(
+                  lat: _ambulancePosition!.latitude,
+                  lng: _ambulancePosition!.longitude,
+                  available: false,
+                );
+              }
+              return a;
+            })
+                .toList(growable: false),
+            primaryRoute: _activeRoute.primary,
+            secondaryRoute: _activeRoute.secondary,
+            showRoutes: _phase != _Phase.idle,
+            showAmbulances: true,
+            onTap: _confirmingPin
+                ? (p) => setState(() => _casualtyPoint = p)
+                : null,
+          ),
+
+          // Casualty pin overlay
+          if (_casualtyPoint != null && _confirmingPin)
+            IgnorePointer(
+              child: Center(
+                child: _buildCasualtyPin(),
+              ),
+            ),
+
+          // Left side - In Progress card
+          if (_phase != _Phase.idle || _dispatchedAmbulance != null)
+            Positioned(
+              left: 16,
+              top: 100,
+              child: _buildLeftCard(),
+            ),
+
+          // Right side - Confirm Location card
+          if (_confirmingPin)
+            Positioned(
+              right: 16,
+              top: 100,
+              child: _buildRightCard(),
+            ),
+
+          // Bottom - Action buttons
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPadding),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0),
+                    Colors.black.withOpacity(0.9),
+                  ],
                 ),
-                // Casualty pin overlay (centered when confirming)
-                if (_casualtyPoint != null)
-                  IgnorePointer(
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 24),
-                        child: Icon(
-                          Icons.location_on,
-                          size: _confirmingPin ? 56 : 0,
-                          color: AppColors.errorRed,
-                        ),
-                      ),
-                    ),
-                  ),
-                if (_confirmingPin)
-                  Positioned(
-                    left: 12,
-                    right: 12,
-                    bottom: 12,
-                    child: _confirmCard(),
-                  ),
-              ],
+              ),
+              child: _buildButtonsRow(),
             ),
           ),
-          Expanded(child: _bottomPanel()),
         ],
       ),
     );
   }
 
-  Widget _confirmCard() => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.12),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      title: Text(
+        'Casualty Response',
+        style: GoogleFonts.quicksand(
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+          color: AppColors.textColor,
+        ),
+      ),
+      centerTitle: false,
+    );
+  }
+
+  Widget _buildCasualtyPin() {
+    return AnimatedScale(
+      scale: _confirmingPin ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 300),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.location_on,
+            size: 56,
+            color: AppColors.errorRed,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(0.5),
+                blurRadius: 8,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'Tap to reposition',
+              style: GoogleFonts.quicksand(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeftCard() {
+    return Container(
+      width: 180,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.15),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.errorRed.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.local_hospital_rounded,
+                  color: AppColors.errorRed,
+                  size: 14,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'In Progress',
+                style: GoogleFonts.quicksand(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_dispatchedAmbulance != null) ...[
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.local_hospital_rounded,
+                        color: AppColors.errorRed,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _dispatchedAmbulance!.stationName,
+                          style: GoogleFonts.quicksand(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _buildProgressIndicator(),
+                ],
+              ),
             ),
           ],
-        ),
-        child: Column(
-          children: [
-            Text(
-              'Confirm Casualty Location',
-              style: GoogleFonts.quicksand(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Tap the map to refine, then confirm.',
-              style: GoogleFonts.quicksand(
-                fontSize: 11,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 10),
+          if (_phase == _Phase.dispatching) ...[
             Row(
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () =>
-                        setState(() => _confirmingPin = false),
-                    child: const Text('Cancel'),
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.primaryBlue,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.errorRed,
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: _onConfirm,
-                    child: const Text('Confirm & Dispatch'),
+                const SizedBox(width: 8),
+                Text(
+                  'Finding ambulance',
+                  style: GoogleFonts.quicksand(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
                   ),
                 ),
               ],
             ),
           ],
-        ),
-      );
+        ],
+      ),
+    );
+  }
 
-  Widget _bottomPanel() => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
-        color: Colors.white,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _phaseBanner(),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: _phase == _Phase.idle ? _startConfirmFlow : null,
-                icon: const Icon(Icons.local_hospital_rounded),
-                label: Text(
-                  _phase == _Phase.idle
-                      ? 'Call an Ambulance'
-                      : 'Dispatch in progress',
-                  style: GoogleFonts.quicksand(
-                      fontWeight: FontWeight.w800, fontSize: 14),
+  Widget _buildProgressIndicator() {
+    double progress = 0;
+    String label = '';
+
+    if (_activeRoute.primary.isNotEmpty) {
+      progress = (_animIndex / 30).clamp(0.0, 1.0);
+      if (_phase == _Phase.movingToCasualty) {
+        label = 'To Casualty: ${(progress * 100).toStringAsFixed(0)}%';
+      } else if (_phase == _Phase.movingToHospital) {
+        label = 'To Hospital: ${(progress * 100).toStringAsFixed(0)}%';
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (label.isNotEmpty)
+          Text(
+            label,
+            style: GoogleFonts.quicksand(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade400,
+            ),
+          ),
+        if (label.isNotEmpty) const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 4,
+            backgroundColor: Colors.grey.shade700,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              _phase == _Phase.movingToHospital
+                  ? AppColors.primaryPurple
+                  : AppColors.errorRed,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRightCard() {
+    return Container(
+      width: 180,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.15),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.errorRed,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+                child: Icon(
+                  Icons.location_on,
+                  color: AppColors.primaryBlue,
+                  size: 14,
                 ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Confirm Location',
+                style: GoogleFonts.quicksand(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tap map to adjust',
+            style: GoogleFonts.quicksand(
+              fontSize: 9,
+              color: Colors.grey.shade400,
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (_casualtyPoint != null)
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Location:',
+                    style: GoogleFonts.quicksand(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade400,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_casualtyPoint!.latitude.toStringAsFixed(4)}\n${_casualtyPoint!.longitude.toStringAsFixed(4)}',
+                    style: GoogleFonts.quicksand(
+                      fontSize: 8,
+                      color: Colors.grey.shade300,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      );
-
-  Widget _phaseBanner() {
-    String label;
-    Color color;
-    switch (_phase) {
-      case _Phase.idle:
-        label = 'No active casualty';
-        color = Colors.grey.shade700;
-        break;
-      case _Phase.confirming:
-        label = 'Awaiting location confirmation';
-        color = AppColors.warningOrange;
-        break;
-      case _Phase.dispatching:
-        label = 'Calculating shortest route…';
-        color = AppColors.primaryBlue;
-        break;
-      case _Phase.movingToCasualty:
-        label = 'Ambulance en-route to casualty';
-        color = AppColors.errorRed;
-        break;
-      case _Phase.movingToHospital:
-        label = 'Transporting casualty to hospital';
-        color = AppColors.primaryPurple;
-        break;
-    }
-    return Container(
-      width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        border: Border.all(color: color.withOpacity(0.4), width: 1),
-        borderRadius: BorderRadius.circular(12),
+        ],
       ),
-      child: Row(
+    );
+  }
+
+  Widget _buildButtonsRow() {
+    final isDisabled = _phase != _Phase.idle;
+
+    if (_confirmingPin) {
+      // Confirmation buttons
+      return Row(
         children: [
-          Icon(Icons.bolt_rounded, color: color, size: 18),
-          const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              label,
-              style: GoogleFonts.quicksand(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
+            child: _buildButton(
+              label: 'Cancel',
+              onPressed: () => setState(() => _confirmingPin = false),
+              isPrimary: false,
+              icon: Icons.close_rounded,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildButton(
+              label: 'Confirm',
+              onPressed: _onConfirm,
+              isPrimary: true,
+              icon: Icons.check_circle_rounded,
+              color: Color(0xFF4CAF50),
             ),
           ),
         ],
+      );
+    } else if (isDisabled) {
+      // Dispatch in progress button - centered
+      return Center(
+        child: SizedBox(
+          width: 280,
+          child: _buildButton(
+            label: 'Dispatch in Progress',
+            onPressed: null,
+            isPrimary: true,
+            icon: Icons.schedule_rounded,
+            color: Color(0xFF2196F3),
+          ),
+        ),
+      );
+    } else {
+      // Call ambulance button - centered
+      return Center(
+        child: SizedBox(
+          width: 280,
+          child: _buildButton(
+            label: 'Call Ambulance',
+            onPressed: _startConfirmFlow,
+            isPrimary: true,
+            icon: Icons.emergency,
+            color: AppColors.errorRed,
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildButton({
+    required String label,
+    required VoidCallback? onPressed,
+    required bool isPrimary,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      height: 52,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: isPrimary && onPressed != null
+            ? LinearGradient(
+          colors: [
+            color,
+            color.withOpacity(0.7),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        )
+            : null,
+        color: isPrimary && onPressed == null
+            ? color.withOpacity(0.4)
+            : !isPrimary
+            ? Colors.white.withOpacity(0.08)
+            : null,
+        border: !isPrimary
+            ? Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1.5,
+        )
+            : null,
+        boxShadow: isPrimary && onPressed != null
+            ? [
+          BoxShadow(
+            color: color.withOpacity(0.5),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ]
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(14),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: isPrimary
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.6),
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: GoogleFonts.quicksand(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: isPrimary
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.6),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
