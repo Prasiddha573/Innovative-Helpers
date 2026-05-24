@@ -1,0 +1,109 @@
+rules_version = '2';
+
+// =============================================================================
+// Real-Time Tactical Disaster Simulation - Firestore security rules
+//
+// Collections (blueprint section 12):
+//   users        - email, name, phone, role, createdAt
+//   hazards      - type, lat, lng, severity, reportedBy, status, createdAt
+//   casualties   - lat, lng, status, dispatchedAmbulanceId, reportedBy, createdAt
+//   ambulances   - lat, lng, status, hospital, updatedAt
+//   routes       - primary, secondary, primaryCostKm, secondaryCostKm, createdAt
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function hasFields(required) {
+      return request.resource.data.keys().hasAll(required);
+    }
+
+    // ---------------------------------------------------------------------
+    // users/{uid}
+    //
+    // Per the blueprint we only store: email, name, phone.
+    // We also keep a `role` field (defaults to "responder") so future admin
+    // tooling can rely on it, plus a server timestamp.
+    // ---------------------------------------------------------------------
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && hasFields(['email', 'name', 'phone'])
+        && request.resource.data.email is string
+        && request.resource.data.name is string
+        && request.resource.data.phone is string;
+
+      allow update: if isOwner(uid)
+        && request.resource.data.email == resource.data.email;
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // hazards/{hazardId}
+    // Any signed-in responder can report or clear a hazard.
+    // ---------------------------------------------------------------------
+    match /hazards/{hazardId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && hasFields(['type', 'lat', 'lng'])
+        && request.resource.data.type is string
+        && request.resource.data.lat is number
+        && request.resource.data.lng is number
+        && request.resource.data.lat >= 27.45
+        && request.resource.data.lat <= 27.95
+        && request.resource.data.lng >= 85.40
+        && request.resource.data.lng <= 85.95;
+
+      allow update, delete: if isSignedIn();
+    }
+
+    // ---------------------------------------------------------------------
+    // casualties/{casualtyId}
+    // ---------------------------------------------------------------------
+    match /casualties/{casualtyId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && hasFields(['lat', 'lng'])
+        && request.resource.data.lat is number
+        && request.resource.data.lng is number;
+
+      allow update, delete: if isSignedIn();
+    }
+
+    // ---------------------------------------------------------------------
+    // ambulances/{ambulanceId}
+    // Read-write for any signed-in responder. In production the writes would
+    // be restricted to a dispatcher role.
+    // ---------------------------------------------------------------------
+    match /ambulances/{ambulanceId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // ---------------------------------------------------------------------
+    // routes/{routeId}
+    // Cached A*/Dijkstra results for analytics.
+    // ---------------------------------------------------------------------
+    match /routes/{routeId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Anything else is denied by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
